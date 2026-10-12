@@ -14,10 +14,11 @@
 chinese-essay-evaluator/
 ├── SKILL.md                              # 核心引導文檔：提詞模板、雙軌學段、評閱工作流、自檢清單
 ├── README.md                             # 專案介紹、安裝指南、提詞範例與使用說明
-├── requirements.txt                      # 相依套件清單 (python-docx, PyMuPDF)
+├── requirements.txt                      # 相依套件清單 (python-docx, PyMuPDF, openpyxl, docx2pdf)
 ├── LICENSE                               # MIT 開源授權條款
 ├── scripts/                              # 自動化輔助工具庫
-│   ├── essay_report_builder.py           # Word 批閱單/全班手冊自動生成引擎 (含天頭訂正格、強制分頁、鷹架卡片)
+│   ├── essay_report_builder.py           # Word 批閱單/全班手冊自動生成引擎 (含錯別字訂正表、強制分頁、鷹架卡片)
+│   ├── class_excel_generator.py          # 班級成績總表 Excel 生成引擎 (雙工作表：向度明細表 + 常模統計表)
 │   └── pdf_essay_extractor.py            # 手寫作文掃描 PDF/圖片批次頁面萃取預處理工具
 └── references/                           # 核心評分法規與批閱寶典庫
     ├── cap_essay_rubric.md               # 心測中心官方寫作測驗四大向度 0~6 級分標準規準手冊
@@ -93,9 +94,8 @@ python scripts/pdf_essay_extractor.py "學生手寫稿卷.pdf" --output-dir "sca
 4. **手寫掃描檔批次自動連續管線**：
    - 支援整份多頁手寫 PDF 一鍵批改到底，自動統計全班成績矩陣。
 5. **Word 排版極致規範（每生強制換頁）**：
-   - 全班報告具備「封面成績矩陣表 ➔ 強制換頁 ➔ 學生個人專章（每生結束後強制換頁） ➔ 強制換頁 ➔ 全班整體教學診斷與研討活動」，可直接印製發放。
-6. **考場天頭錯別字回寫訂正格**：
-   - 實體還原考場批改實務，以 `「錯字」口 ➔ 【 正字 】` 呈現，輔導學生落實文字正確性。
+6. **考場天頭錯別字精準座標訂正表**：
+   - 實體還原考場批改實務，以教學直覺型 4 欄表格（錯字詞語、卷面座標 `P1 第 X 行第 Y 格`、錯誤字修正、語境訂正與字義解析）精準呈現，輔導學生落實文字正確性。
 
 ---
 

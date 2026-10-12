@@ -128,14 +128,12 @@ def render_student_section(doc, student_data, is_batch=False):
     set_font(r_hdr, name='微軟正黑體', size_pt=14, bold=True, color_rgb=(30, 58, 138))
 
     # 2. 基本資訊橫卡
-    tbl_info = doc.add_table(rows=1, cols=4)
+    tbl_info = doc.add_table(rows=1, cols=2)
     tbl_info.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_info.autofit = False
-    info_w = [Inches(2.5), Inches(1.6), Inches(1.6), Inches(1.5)]
+    info_w = [Inches(3.5), Inches(3.6)]
     info_items = [
         ("題目", f"〈{topic}〉"),
-        ("學段/對象", f"{stage} ｜ {student_info}"),
-        ("評定級分", f"{score} 級分 ({level_tier})"),
-        ("百分制換算", f"{percent_score} 分")
+        ("班級/座號/姓名", f"{student_info}")
     ]
     for idx_i, (lbl, val) in enumerate(info_items):
         c = tbl_info.cell(0, idx_i); c.width = info_w[idx_i]
@@ -143,12 +141,12 @@ def render_student_section(doc, student_data, is_batch=False):
         set_cell_pad(c, top=40, bottom=40, left=50, right=50)
         set_borders(c, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
         p = c.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r1 = p.add_run(f"{lbl}\n"); set_font(r1, name='微軟正黑體', size_pt=8.0, bold=False, color_rgb=(100, 116, 139))
-        r2 = p.add_run(val); set_font(r2, name='微軟正黑體', size_pt=9.0, bold=True, color_rgb=(30, 58, 138))
+        r1 = p.add_run(f"{lbl}\n"); set_font(r1, name='微軟正黑體', size_pt=8.5, bold=False, color_rgb=(100, 116, 139))
+        r2 = p.add_run(val); set_font(r2, name='微軟正黑體', size_pt=9.5, bold=True, color_rgb=(30, 58, 138))
 
-    add_p(doc, f"卷面篇幅與防守線檢核：{page_status}", space_after=3, bold=True, color_rgb=(71, 85, 105))
+    add_p(doc, f"卷面篇幅檢核：{page_status}", space_after=3, bold=True, color_rgb=(71, 85, 105))
 
-    # 3. 老師考場紅筆總評 Banner
+    # 3. 老師考場總評 Banner
     tbl_score = doc.add_table(rows=1, cols=2)
     tbl_score.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_score.autofit = False
     c_sc1 = tbl_score.cell(0, 0); c_sc1.width = Inches(2.0)
@@ -161,17 +159,16 @@ def render_student_section(doc, student_data, is_batch=False):
                        top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'},
                        bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
     p_sc = c_sc1.paragraphs[0]; p_sc.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_sc_lbl = p_sc.add_run("綜合會考級分\n"); set_font(r_sc_lbl, name='微軟正黑體', size_pt=8.5, bold=False, color_rgb=(100, 116, 139))
-    r_sc_val = p_sc.add_run(f"【 {score} 級分 】\n")
-    set_font(r_sc_val, name='微軟正黑體', size_pt=18, bold=True, color_rgb=(30, 58, 138) if score>=5 else ((180, 83, 9) if score==4 else (185, 28, 28)))
-    r_sc_tier = p_sc.add_run(level_tier); set_font(r_sc_tier, name='微軟正黑體', size_pt=8.5, bold=True, color_rgb=(71, 85, 105))
+    r_sc_lbl = p_sc.add_run("綜合會考級分\n"); set_font(r_sc_lbl, name='微軟正黑體', size_pt=9.0, bold=False, color_rgb=(100, 116, 139))
+    r_sc_val = p_sc.add_run(f"【 {score} 級分 】")
+    set_font(r_sc_val, name='微軟正黑體', size_pt=20, bold=True, color_rgb=(30, 58, 138) if score>=5 else ((180, 83, 9) if score==4 else (185, 28, 28)))
 
     set_cell_shd(c_sc2, "FFFFFF"); set_cell_pad(c_sc2, top=50, bottom=50, left=50, right=50)
     set_borders(c_sc2, right={'val': 'single', 'sz': '4', 'color': 'CBD5E1'},
                        top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'},
                        bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
     p_rev = c_sc2.paragraphs[0]
-    r_rev_t = p_rev.add_run("閱卷名師實戰紅筆總評：\n"); set_font(r_rev_t, name='微軟正黑體', size_pt=9.5, bold=True, color_rgb=(30, 58, 138))
+    r_rev_t = p_rev.add_run("名師總評：\n"); set_font(r_rev_t, name='微軟正黑體', size_pt=9.5, bold=True, color_rgb=(30, 58, 138))
     r_rev_c = p_rev.add_run(one_sentence_review); set_font(r_rev_c, name='微軟正黑體', size_pt=9.0, bold=False, color_rgb=(51, 65, 85))
 
     # 4. 四大向度評量矩陣表
@@ -191,13 +188,36 @@ def render_student_section(doc, student_data, is_batch=False):
         ("遣詞造句", f"{score} 級分", "文句通順清楚，能傳達意思，但句型稍平鋪，偶有口語化贅字。"),
         ("錯別字與標點", f"{max(score, 4)} 級分", "格式大致正確，有少數錯別字，標點符號請注意逗號與句號之適當分界。")
     ]
-    target_dims = dimensions if dimensions else default_dims
+    if isinstance(dimensions, dict):
+        target_dims = []
+        for k, v in dimensions.items():
+            if isinstance(v, (list, tuple)):
+                if len(v) >= 2:
+                    target_dims.append((k, str(v[0]), str(v[1])))
+                elif len(v) == 1:
+                    target_dims.append((k, f"{score} 級分", str(v[0])))
+                else:
+                    target_dims.append((k, f"{score} 級分", "-"))
+            elif isinstance(v, dict):
+                target_dims.append((k, str(v.get('grade', f"{score} 級分")), str(v.get('comment', ''))))
+            else:
+                target_dims.append((k, f"{score} 級分", str(v)))
+    elif dimensions and isinstance(dimensions, (list, tuple)):
+        target_dims = dimensions
+    else:
+        target_dims = default_dims
 
     for r_i, d_row in enumerate(target_dims):
         row = tbl_dim.add_row()
         bg = "F8FAFC" if r_i % 2 == 1 else "FFFFFF"
-        for c_i, val in enumerate(d_row):
-            c = row.cells[c_i]; c.text = val; c.width = dim_w[c_i]
+        # 確保 d_row 為 3 項
+        d_items = list(d_row) if isinstance(d_row, (list, tuple)) else [str(d_row), f"{score} 級分", ""]
+        while len(d_items) < 3:
+            d_items.append("")
+        d_items = d_items[:3]
+
+        for c_i, val in enumerate(d_items):
+            c = row.cells[c_i]; c.text = str(val); c.width = dim_w[c_i]
             set_cell_shd(c, bg); set_cell_pad(c, top=45, bottom=45, left=45, right=45)
             p = c.paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER if c_i in [0, 1] else WD_ALIGN_PARAGRAPH.LEFT
@@ -205,31 +225,56 @@ def render_student_section(doc, student_data, is_batch=False):
             set_font(p.runs[0], name='微軟正黑體', size_pt=8.5, bold=(c_i in [0, 1]), color_rgb=f_color)
             set_borders(c, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
 
-    # 5. 考場天頭錯別字訂正格
-    format_heading(doc, "貳、 考場天頭錯別字回寫訂正格", 1)
+    # 5. 錯別字訂正表
+    format_heading(doc, "貳、 錯別字訂正表", 1)
     if wrong_words:
         tbl_ww = doc.add_table(rows=1, cols=4)
         tbl_ww.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_ww.autofit = False
-        ww_w = [Inches(1.8), Inches(1.8), Inches(1.8), Inches(1.8)]
-        for i, h in enumerate(["錯字回寫欄 ①", "錯字回寫欄 ②", "錯字回寫欄 ③", "錯字回寫欄 ④"]):
+        ww_w = [Inches(1.2), Inches(1.5), Inches(1.5), Inches(3.0)]
+        headers_ww = ["錯字詞語", "卷面座標", "錯誤字修正", "語境訂正與字義解析"]
+        for i, h in enumerate(headers_ww):
             c = tbl_ww.rows[0].cells[i]; c.text = h; c.width = ww_w[i]
-            set_cell_shd(c, "334155"); set_cell_pad(c, top=45, bottom=45, left=35, right=35)
+            set_cell_shd(c, "1E3A8A"); set_cell_pad(c, top=45, bottom=45, left=35, right=35)
             p = c.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             set_font(p.runs[0], name='微軟正黑體', size_pt=8.5, bold=True, color_rgb=(255, 255, 255))
         
-        row_w = tbl_ww.add_row()
-        for idx_w in range(4):
-            c = row_w.cells[idx_w]; c.width = ww_w[idx_w]
-            set_cell_shd(c, "FEF2F2"); set_cell_pad(c, top=50, bottom=50, left=35, right=35)
-            p = c.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            if idx_w < len(wrong_words):
-                w_orig, w_corr = wrong_words[idx_w]
-                r_txt = p.add_run(f"「{w_orig}」 口 ➔ 【 {w_corr} 】")
-                set_font(r_txt, name='微軟正黑體', size_pt=8.5, bold=True, color_rgb=(185, 28, 28))
+        for idx_w, item in enumerate(wrong_words):
+            row_w = tbl_ww.add_row()
+            # 正規化錯字格式 (支援 dict, tuple/list 4/3/2, 或 str)
+            if isinstance(item, dict):
+                w_orig = item.get('word', '')
+                w_loc = item.get('location', f"P1 第 {idx_w+1} 行")
+                w_corr = item.get('correction', '')
+                w_note = item.get('note', '')
+            elif isinstance(item, (list, tuple)):
+                if len(item) >= 4:
+                    w_orig, w_loc, w_corr, w_note = item[0], item[1], item[2], item[3]
+                elif len(item) == 3:
+                    w_orig, w_loc, w_corr = item[0], item[1], item[2]
+                    w_note = ""
+                elif len(item) == 2:
+                    w_orig, w_corr = item[0], item[1]
+                    w_loc = f"P1 第 {idx_w+1} 行"
+                    w_note = ""
+                else:
+                    w_orig = str(item[0]); w_loc = "-"; w_corr = "-"; w_note = ""
             else:
-                r_txt = p.add_run("---")
-                set_font(r_txt, name='微軟正黑體', size_pt=8.5, bold=False, color_rgb=(148, 163, 184))
-            set_borders(c, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
+                w_orig = str(item); w_loc = "-"; w_corr = "-"; w_note = ""
+
+            bg_row = "FEF2F2" if idx_w % 2 == 0 else "FFFFFF"
+            col_vals = [
+                (w_orig, True, (185, 28, 28), WD_ALIGN_PARAGRAPH.CENTER),
+                (w_loc, True, (30, 58, 138), WD_ALIGN_PARAGRAPH.CENTER),
+                (w_corr, True, (21, 128, 61), WD_ALIGN_PARAGRAPH.CENTER),
+                (w_note, False, (15, 23, 42), WD_ALIGN_PARAGRAPH.LEFT)
+            ]
+            for c_i, (val, b_flag, color_c, align_c) in enumerate(col_vals):
+                c = row_w.cells[c_i]; c.width = ww_w[c_i]
+                set_cell_shd(c, bg_row); set_cell_pad(c, top=45, bottom=45, left=35, right=35)
+                p = c.paragraphs[0]; p.alignment = align_c
+                r = p.add_run(val)
+                set_font(r, name='微軟正黑體', size_pt=8.5, bold=b_flag, color_rgb=color_c)
+                set_borders(c, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
     else:
         add_p(doc, "太棒了！本次卷面書寫嚴謹，無明顯錯別字，請繼續保持高水準之文字正確性！", bold=True, color_rgb=(21, 128, 61))
 
@@ -345,11 +390,11 @@ def build_batch_class_report(batch_data, output_path):
     set_font(r_sub, name='微軟正黑體', size_pt=11, bold=False, color_rgb=(71, 85, 105))
 
     # 2. 全班成績總覽表
-    format_heading(doc, "📊 全班寫作測驗成績與評定總覽表", 1)
-    tbl_sum = doc.add_table(rows=1, cols=6)
+    format_heading(doc, "📊 寫作測驗成績與評定總覽表", 1)
+    tbl_sum = doc.add_table(rows=1, cols=4)
     tbl_sum.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_sum.autofit = False
-    sum_w = [Inches(1.0), Inches(1.1), Inches(1.8), Inches(1.0), Inches(0.9), Inches(1.7)]
-    headers = ["座號/姓名", "學段年級", "寫作題目", "會考級分", "百分制", "核心亮點與硬傷短評"]
+    sum_w = [Inches(1.8), Inches(1.8), Inches(1.2), Inches(2.3)]
+    headers = ["班級/座號/姓名", "寫作題目", "綜合會考級分", "名師總評"]
     for i, h in enumerate(headers):
         c = tbl_sum.rows[0].cells[i]; c.text = h; c.width = sum_w[i]
         set_cell_shd(c, "1E3A8A"); set_cell_pad(c, top=50, bottom=50, left=40, right=40)
@@ -361,19 +406,17 @@ def build_batch_class_report(batch_data, output_path):
         bg = "DCFCE7" if s_info.get('score', 0) >= 6 else ("F8FAFC" if r_i % 2 == 1 else "FFFFFF")
         vals = [
             s_info.get('student_info', f"學生 {r_i+1}"),
-            s_info.get('stage', "國中九年級"),
             f"〈{s_info.get('topic', '未定題')}〉",
             f"{s_info.get('score', 4)} 級分",
-            f"{s_info.get('percent_score', 80)} 分",
-            s_info.get('one_sentence_review', "論述尚稱通順。")[:30] + "..."
+            s_info.get('one_sentence_review', "論述尚稱通順。")
         ]
         for c_i, val in enumerate(vals):
             c = row.cells[c_i]; c.text = val; c.width = sum_w[c_i]
             set_cell_shd(c, bg); set_cell_pad(c, top=40, bottom=40, left=40, right=40)
             p = c.paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER if c_i in [0, 1, 3, 4] else WD_ALIGN_PARAGRAPH.LEFT
-            bold_flag = (c_i in [0, 3])
-            f_color = (21, 128, 61) if (c_i == 3 and s_info.get('score', 0)>=6) else (15, 23, 42)
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER if c_i in [0, 1, 2] else WD_ALIGN_PARAGRAPH.LEFT
+            bold_flag = (c_i in [0, 2])
+            f_color = (21, 128, 61) if (c_i == 2 and s_info.get('score', 0)>=6) else (15, 23, 42)
             set_font(p.runs[0], name='微軟正黑體', size_pt=8.0, bold=bold_flag, color_rgb=f_color)
             set_borders(c, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
 
