@@ -141,9 +141,11 @@ flowchart TD
 ## 五、 第五階段：手寫掃描檔 (PDF/圖片) 批次自動管線
 
 當收到學生手寫掃描 PDF 或圖片資料夾時：
-1. **頁數與學生篇數判定**：調用 `scripts/pdf_essay_extractor.py` 將 PDF 解構為高解析度圖檔。
+1. **頁數、篇數判定與版面轉正**：
+   - 調用 `scripts/pdf_essay_extractor.py` 將 PDF 解構為高解析度圖檔。
+   - **上下顛倒自動/指令轉正**：若掃描文件上下顛倒或方向倒置，工具支援旋轉轉正（`--rotate 180`，亦支援 90°、270°），確保文字正向輸入 AI 進行高精度辨識；並可另存一份實體 `[檔名]_已轉正.pdf` 備份供教師查閱。
 2. **自動連續批改到底**：**取消批次中斷**，依序批改每位學生，無需使用者多次點擊「繼續」。
-3. **整合匯出 Word 手冊**：調用 `scripts/essay_report_builder.py` 輸出整班成果報告。
+3. **整合匯出三重報告**：調用 `scripts/class_excel_generator.py` 產出 Excel 總表，並調用 `scripts/essay_report_builder.py` 產出 Word 與向量 PDF 雙檔診斷冊。
 
 ---
 

@@ -13,12 +13,13 @@ try:
 except ImportError:
     fitz = None
 
-def extract_pdf_pages_to_images(pdf_path, output_dir=None, zoom=2.0):
+def extract_pdf_pages_to_images(pdf_path, output_dir=None, zoom=2.0, rotate=0):
     """
-    將 PDF 各頁轉換為高解析度圖片供 AI 辨識手寫文章
+    將 PDF 各頁轉換為高解析度圖片供 AI 辨識手寫文章，支援版面旋轉轉正。
     :param pdf_path: PDF 檔案路徑
     :param output_dir: 暫存輸出資料夾
     :param zoom: 縮放比率 (2.0 = 約 150~200 DPI，適合手寫字跡辨識)
+    :param rotate: 額外旋轉角度（例如 180 為上下顛倒轉正，或 90, 270）
     :return: 產出的圖片路徑清單
     """
     if not fitz:
@@ -35,10 +36,11 @@ def extract_pdf_pages_to_images(pdf_path, output_dir=None, zoom=2.0):
     
     doc = fitz.open(pdf_path)
     total_pages = len(doc)
-    print(f"📖 讀取 PDF 成功：共 {total_pages} 頁")
+    print(f"📖 讀取 PDF 成功：共 {total_pages} 頁（旋轉角度：{rotate}°）")
 
     image_paths = []
-    mat = fitz.Matrix(zoom, zoom)
+    # 建立縮放與旋轉矩陣
+    mat = fitz.Matrix(zoom, zoom).prerotate(rotate)
 
     for page_idx in range(total_pages):
         page = doc[page_idx]
@@ -49,14 +51,47 @@ def extract_pdf_pages_to_images(pdf_path, output_dir=None, zoom=2.0):
         image_paths.append(img_path)
 
     doc.close()
-    print(f"✅ 已成功將 {total_pages} 頁轉換為圖片，存放於：{output_dir}")
+    print(f"✅ 已成功將 {total_pages} 頁（旋轉 {rotate}°）轉換為圖片，存放於：{output_dir}")
     return image_paths
 
+def rotate_pdf_file(pdf_path, output_pdf_path=None, rotate=180):
+    """
+    直接將 PDF 實體檔案旋轉指定角度並另存新檔（如上下顛倒轉正）
+    :param pdf_path: 原始 PDF 檔案路徑
+    :param output_pdf_path: 轉正後的 PDF 儲存路徑（預設在同檔名後加上 _已轉正.pdf）
+    :param rotate: 旋轉角度（預設 180 度）
+    :return: 轉正後的 PDF 檔案路徑
+    """
+    if not fitz:
+        raise ImportError("請先安裝 PyMuPDF：pip install PyMuPDF")
+
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"找不到 PDF 檔案：{pdf_path}")
+
+    if not output_pdf_path:
+        base, ext = os.path.splitext(pdf_path)
+        output_pdf_path = f"{base}_已轉正{ext}"
+
+    doc = fitz.open(pdf_path)
+    for page in doc:
+        page.set_rotation((page.rotation + rotate) % 360)
+    doc.save(output_pdf_path)
+    doc.close()
+    print(f"🔄 PDF 已成功旋轉 {rotate}° 並另存為：{output_pdf_path}")
+    return output_pdf_path
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="PDF 稿紙批次圖片萃取工具")
+    parser = argparse.ArgumentParser(description="PDF 稿紙批次圖片萃取與轉正工具")
     parser.add_argument('pdf_path', help="PDF 檔案路徑")
     parser.add_argument('--output-dir', default=None, help="圖片輸出資料夾")
     parser.add_argument('--zoom', type=float, default=2.0, help="縮放係數 (預設 2.0)")
+    parser.add_argument('--rotate', type=int, default=0, choices=[0, 90, 180, 270], help="旋轉角度 (例如 180 為上下顛倒轉正)")
+    parser.add_argument('--save-rotated-pdf', action='store_true', help="是否額外另存已轉正的 PDF 檔案")
     
     args = parser.parse_args()
-    extract_pdf_pages_to_images(args.pdf_path, args.output_dir, args.zoom)
+    
+    if args.save_rotated_pdf and args.rotate != 0:
+        rotate_pdf_file(args.pdf_path, rotate=args.rotate)
+        
+    extract_pdf_pages_to_images(args.pdf_path, args.output_dir, args.zoom, args.rotate)
+
