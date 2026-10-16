@@ -9,6 +9,10 @@ class_excel_generator.py
 
 import os
 import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -112,7 +116,9 @@ def build_class_excel_report(batch_data, output_path):
             name = parts[1]
             
         topic = f"〈{s.get('topic', '當我停下來')}〉"
+        is_absent = s.get('is_absent', False) or (s.get('score', 0) == 0 and '缺考' in s.get('page_status', ''))
         score = s.get('score', 4)
+        score_display = "缺考" if is_absent else f"{score} 級分"
         
         # 拆解四大向度
         dims = s.get('dimensions', [])
@@ -123,10 +129,10 @@ def build_class_excel_report(batch_data, output_path):
             elif isinstance(d, dict):
                 dim_map[d.get('name', '')] = d.get('grade', f"{score} 級分")
                 
-        d_liyi = dim_map.get('立意取材', f"{score} 級分")
-        d_jiegou = dim_map.get('結構組織', f"{score} 級分")
-        d_qianci = dim_map.get('遣詞造句', f"{score} 級分")
-        d_cuozi = dim_map.get('錯別字與標點', f"{score} 級分")
+        d_liyi = dim_map.get('立意取材', f"{score} 級分" if not is_absent else "缺考")
+        d_jiegou = dim_map.get('結構組織', f"{score} 級分" if not is_absent else "缺考")
+        d_qianci = dim_map.get('遣詞造句', f"{score} 級分" if not is_absent else "缺考")
+        d_cuozi = dim_map.get('錯別字與標點', f"{score} 級分" if not is_absent else "缺考")
         
         page_status = s.get('page_status', '篇幅充裕')
         
@@ -143,15 +149,16 @@ def build_class_excel_report(batch_data, output_path):
                 ww_summary_items.append(f"{item[0]}({item[2]})")
             elif isinstance(item, str):
                 ww_summary_items.append(item)
-        ww_summary = "、".join(ww_summary_items) if ww_summary_items else "卷面嚴謹零錯字"
+        ww_summary = "、".join(ww_summary_items) if ww_summary_items else ("缺考無作答" if is_absent else "卷面嚴謹零錯字")
         
         review = s.get('one_sentence_review', '')
         
+        score_highlight = None if is_absent else score
         row_vals = [
             (seat_no, align_center, None, None),
             (name, align_center, Font(name=font_name, size=10, bold=True, color='1E3A8A'), None),
             (topic, align_center, None, None),
-            (f"{score} 級分", align_center, None, score), # 級分高亮
+            (score_display, align_center, None, score_highlight), # 級分高亮
             (d_liyi, align_center, None, None),
             (d_jiegou, align_center, None, None),
             (d_qianci, align_center, None, None),
@@ -228,20 +235,23 @@ def build_class_excel_report(batch_data, output_path):
     ws2.row_dimensions[1].height = 32
     
     # 1. 班級整體量化看板
-    scores = [s.get('score', 4) for s in students]
-    total_students = len(scores)
-    avg_score = round(sum(scores) / total_students, 2) if total_students > 0 else 0
+    tested_students = [s for s in students if not (s.get('is_absent', False) or (s.get('score', 0) == 0 and '缺考' in s.get('page_status', '')))]
+    scores = [s.get('score', 4) for s in tested_students]
+    total_students = len(students)
+    tested_count = len(tested_students)
+    absent_count = total_students - tested_count
+    avg_score = round(sum(scores) / tested_count, 2) if tested_count > 0 else 0
     
     ws2.cell(row=3, column=1, value="一、 班級整體成績量化概況").font = font_sub_header
     ws2.row_dimensions[3].height = 24
     
     summary_kpis = [
-        ("應試總人數", f"{total_students} 人"),
-        ("全班平均會考級分", f"{avg_score} 級分"),
-        ("滿級分 (6級分) 人數", f"{scores.count(6)} 人 ({round(scores.count(6)/total_students*100, 1)}%)"),
-        ("上卷精熟 (5~6級分) 人數", f"{scores.count(6)+scores.count(5)} 人 ({round((scores.count(6)+scores.count(5))/total_students*100, 1)}%)"),
-        ("穩健中卷 (4級分) 人數", f"{scores.count(4)} 人 ({round(scores.count(4)/total_students*100, 1)}%)"),
-        ("待加強 (3級分以下) 人數", f"{sum(1 for sc in scores if sc <= 3)} 人 ({round(sum(1 for sc in scores if sc <= 3)/total_students*100, 1)}%)")
+        ("應試總人數 (實到 / 應到)", f"{tested_count} 人 / {total_students} 人 (缺考 {absent_count} 人)"),
+        ("全班平均會考級分 (實考)", f"{avg_score} 級分"),
+        ("滿級分 (6級分) 人數", f"{scores.count(6)} 人 ({round(scores.count(6)/tested_count*100, 1) if tested_count else 0}%)"),
+        ("上卷精熟 (5~6級分) 人數", f"{scores.count(6)+scores.count(5)} 人 ({round((scores.count(6)+scores.count(5))/tested_count*100, 1) if tested_count else 0}%)"),
+        ("穩健中卷 (4級分) 人數", f"{scores.count(4)} 人 ({round(scores.count(4)/tested_count*100, 1) if tested_count else 0}%)"),
+        ("待加強 (3級分以下) 人數", f"{sum(1 for sc in scores if sc <= 3)} 人 ({round(sum(1 for sc in scores if sc <= 3)/tested_count*100, 1) if tested_count else 0}%)")
     ]
     
     for idx_k, (k_lbl, k_val) in enumerate(summary_kpis, start=4):
@@ -387,5 +397,19 @@ def build_class_excel_report(batch_data, output_path):
     return output_path
 
 if __name__ == '__main__':
-    # 測試執行
-    pass
+    import json
+    if len(sys.argv) >= 3:
+        json_path = sys.argv[1]
+        out_excel = sys.argv[2]
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        build_class_excel_report(data, out_excel)
+    elif len(sys.argv) == 2:
+        json_path = sys.argv[1]
+        out_excel = os.path.splitext(json_path)[0] + ".xlsx"
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        build_class_excel_report(data, out_excel)
+    else:
+        print("Usage: python class_excel_generator.py <class_results.json> [output.xlsx]")
+

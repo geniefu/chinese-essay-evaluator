@@ -343,6 +343,25 @@ def render_student_section(doc, student_data, is_batch=False):
         r_m_body = p_m.add_run(model_essay)
         set_font(r_m_body, name='微軟正黑體', size_pt=9.0, bold=False, color_rgb=(30, 41, 59))
 
+    # 10. 學生原卷作答影像存查 (若提供)
+    essay_images = student_data.get('essay_images', [])
+    if essay_images:
+        # 計算項次序號
+        cnt_prior = 4
+        if scaffold: cnt_prior += 1
+        if True: cnt_prior += 1 # 逐段批註
+        if True: cnt_prior += 1 # 升級示範
+        if model_essay: cnt_prior += 1
+        order_cn = ["壹", "貳", "參", "肆", "伍", "陸", "柒", "捌", "玖", "拾"]
+        sec_num_img = order_cn[cnt_prior-1] if cnt_prior <= len(order_cn) else "附錄"
+        format_heading(doc, f"{sec_num_img}、 學生原卷作答影像存查", 1)
+        for img_p in essay_images:
+            if os.path.exists(img_p):
+                doc.add_picture(img_p, width=Inches(6.2))
+                p_img = doc.paragraphs[-1]
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.paragraph_format.space_after = Pt(6)
+
 def build_single_report(report_data, output_path):
     """產出單一學生專屬診斷單"""
     doc = docx.Document()

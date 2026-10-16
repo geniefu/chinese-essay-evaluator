@@ -8,6 +8,9 @@ import os
 import sys
 import argparse
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 try:
     import fitz  # PyMuPDF
 except ImportError:
