@@ -230,8 +230,8 @@ def render_student_section(doc, student_data, is_batch=False):
     if wrong_words:
         tbl_ww = doc.add_table(rows=1, cols=4)
         tbl_ww.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_ww.autofit = False
-        ww_w = [Inches(1.2), Inches(1.5), Inches(1.5), Inches(3.0)]
-        headers_ww = ["錯字詞語", "卷面座標", "錯誤字修正", "語境訂正與字義解析"]
+        ww_w = [Inches(1.1), Inches(2.5), Inches(1.1), Inches(2.5)]
+        headers_ww = ["錯字詞語", "所在段落與原句脈絡", "錯誤字修正", "語境訂正與字義解析"]
         for i, h in enumerate(headers_ww):
             c = tbl_ww.rows[0].cells[i]; c.text = h; c.width = ww_w[i]
             set_cell_shd(c, "1E3A8A"); set_cell_pad(c, top=45, bottom=45, left=35, right=35)
@@ -243,7 +243,7 @@ def render_student_section(doc, student_data, is_batch=False):
             # 正規化錯字格式 (支援 dict, tuple/list 4/3/2, 或 str)
             if isinstance(item, dict):
                 w_orig = item.get('word', '')
-                w_loc = item.get('location', f"P1 第 {idx_w+1} 行")
+                w_loc = item.get('location', item.get('context', f"第 {idx_w+1} 段"))
                 w_corr = item.get('correction', '')
                 w_note = item.get('note', '')
             elif isinstance(item, (list, tuple)):
@@ -254,7 +254,7 @@ def render_student_section(doc, student_data, is_batch=False):
                     w_note = ""
                 elif len(item) == 2:
                     w_orig, w_corr = item[0], item[1]
-                    w_loc = f"P1 第 {idx_w+1} 行"
+                    w_loc = f"第 {idx_w+1} 段"
                     w_note = ""
                 else:
                     w_orig = str(item[0]); w_loc = "-"; w_corr = "-"; w_note = ""
@@ -264,7 +264,7 @@ def render_student_section(doc, student_data, is_batch=False):
             bg_row = "FEF2F2" if idx_w % 2 == 0 else "FFFFFF"
             col_vals = [
                 (w_orig, True, (185, 28, 28), WD_ALIGN_PARAGRAPH.CENTER),
-                (w_loc, True, (30, 58, 138), WD_ALIGN_PARAGRAPH.CENTER),
+                (w_loc, False, (30, 58, 138), WD_ALIGN_PARAGRAPH.LEFT),
                 (w_corr, True, (21, 128, 61), WD_ALIGN_PARAGRAPH.CENTER),
                 (w_note, False, (15, 23, 42), WD_ALIGN_PARAGRAPH.LEFT)
             ]
