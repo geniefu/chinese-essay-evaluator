@@ -102,7 +102,20 @@ def add_p(doc, text="", space_after=2, bold=False, color_rgb=(30, 41, 59)):
         set_font(run, name='微軟正黑體', size_pt=9.0, bold=bold, color_rgb=color_rgb)
     return p
 
-def render_student_section(doc, student_data, is_batch=False):
+def try_export_pdf(docx_path):
+    """嘗試調用 docx2pdf 自動生成同名向量 PDF 檔案"""
+    pdf_path = os.path.splitext(docx_path)[0] + ".pdf"
+    try:
+        from docx2pdf import convert
+        print(f"正在轉換為高畫質向量 PDF: {pdf_path} ...")
+        convert(docx_path, pdf_path)
+        print(f"✅ 向量 PDF 產出成功：{pdf_path}")
+        return pdf_path
+    except Exception as e:
+        print(f"提示：自動轉換 PDF 略過 ({e})，保留 Word 檔。")
+        return None
+
+def render_student_section(doc, student_data, is_batch=False, include_images=False):
     """渲染單一學生評閱章節"""
     topic = student_data.get('topic', "未定題")
     student_info = student_data.get('student_info', "九年級 學生")
@@ -343,8 +356,9 @@ def render_student_section(doc, student_data, is_batch=False):
         r_m_body = p_m.add_run(model_essay)
         set_font(r_m_body, name='微軟正黑體', size_pt=9.0, bold=False, color_rgb=(30, 41, 59))
 
-    # 10. 學生原卷作答影像存查 (若提供)
-    essay_images = student_data.get('essay_images', [])
+    # 10. 學生原卷作答影像存查 (預設不插入，僅在 include_images=True 或明確指定時才插入)
+    should_insert = include_images or student_data.get('include_images', False)
+    essay_images = student_data.get('essay_images', []) if should_insert else []
     if essay_images:
         # 計算項次序號
         cnt_prior = 4
@@ -362,7 +376,7 @@ def render_student_section(doc, student_data, is_batch=False):
                 p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p_img.paragraph_format.space_after = Pt(6)
 
-def build_single_report(report_data, output_path):
+def build_single_report(report_data, output_path, include_images=False, auto_pdf=True):
     """產出單一學生專屬診斷單"""
     doc = docx.Document()
     for s in doc.sections:
@@ -371,12 +385,14 @@ def build_single_report(report_data, output_path):
         s.left_margin = Inches(0.45)
         s.right_margin = Inches(0.45)
 
-    render_student_section(doc, report_data, is_batch=False)
+    render_student_section(doc, report_data, is_batch=False, include_images=include_images)
     doc.save(output_path)
     print(f"單生作文評閱診斷單已成功產出：{output_path}")
+    if auto_pdf:
+        try_export_pdf(output_path)
     return output_path
 
-def build_batch_class_report(batch_data, output_path):
+def build_batch_class_report(batch_data, output_path, include_images=False, auto_pdf=True):
     """
     產出全班作文評閱彙整手冊 (Class-wide Batch Report)
     包含：
@@ -395,6 +411,7 @@ def build_batch_class_report(batch_data, output_path):
     subtitle = batch_data.get('subtitle', "國中教育會考規準 ｜ 心測中心量規 + 名師嚴格閱卷指標")
     students = batch_data.get('students', [])
     class_diagnosis = batch_data.get('class_diagnosis', None)
+    batch_include_images = include_images or batch_data.get('include_images', False)
 
     # 1. 封面抬頭
     p_t = doc.add_paragraph()
@@ -444,7 +461,7 @@ def build_batch_class_report(batch_data, output_path):
 
     # 3. 逐生渲染章節（每生結束後強制換頁）
     for s_idx, s_data in enumerate(students):
-        render_student_section(doc, s_data, is_batch=True)
+        render_student_section(doc, s_data, is_batch=True, include_images=batch_include_images)
         if s_idx < len(students) - 1 or class_diagnosis:
             doc.add_page_break()
 
@@ -469,6 +486,8 @@ def build_batch_class_report(batch_data, output_path):
 
     doc.save(output_path)
     print(f"全班作文評閱彙整手冊已成功產出：{output_path}")
+    if auto_pdf:
+        try_export_pdf(output_path)
     return output_path
 
 if __name__ == '__main__':
@@ -480,16 +499,19 @@ if __name__ == '__main__':
     parser.add_argument('--stage', default="國中九年級", help="學段年級（國小/國中）")
     parser.add_argument('--output', default="會考作文評閱診斷單.docx", help="輸出 Word 檔案路徑")
     parser.add_argument('--data-json', default=None, help="傳入單生或全班評審診斷之 JSON 檔案")
+    parser.add_argument('--include-images', action='store_true', default=False, help="是否在報告中插入學生原稿掃描圖檔（預設 False 不插入，保持報告輕量與排版精美）")
+    parser.add_argument('--no-pdf', action='store_true', default=False, help="是否關閉自動轉向量 PDF 功能（預設自動轉出同名向量 PDF）")
     
     args = parser.parse_args()
+    auto_pdf = not args.no_pdf
     
     if args.data_json and os.path.exists(args.data_json):
         with open(args.data_json, 'r', encoding='utf-8') as f:
             loaded_data = json.load(f)
         if 'students' in loaded_data:
-            build_batch_class_report(loaded_data, args.output)
+            build_batch_class_report(loaded_data, args.output, include_images=args.include_images, auto_pdf=auto_pdf)
         else:
-            build_single_report(loaded_data, args.output)
+            build_single_report(loaded_data, args.output, include_images=args.include_images, auto_pdf=auto_pdf)
     else:
         single_data = {
             'topic': args.topic,
@@ -498,4 +520,4 @@ if __name__ == '__main__':
             'tier': args.tier,
             'stage': args.stage
         }
-        build_single_report(single_data, args.output)
+        build_single_report(single_data, args.output, include_images=args.include_images, auto_pdf=auto_pdf)
