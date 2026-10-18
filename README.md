@@ -29,11 +29,13 @@ chinese-essay-evaluator/
 ├── requirements.txt                      # 相依套件清單 (python-docx, PyMuPDF, openpyxl, docx2pdf)
 ├── LICENSE                               # MIT 開源授權條款
 ├── scripts/                              # 自動化輔助工具庫
+│   ├── batch_data_merge.py               # 全班批閱資料自動合併、正規化校準與一鍵報表產生管線
 │   ├── rubric_plan_builder.py            # 《嚴格評審準則規畫書》Word (.docx) 自動生成引擎
 │   ├── essay_report_builder.py           # Word 批閱單/全班手冊自動生成引擎 (含錯別字訂正表、強制分頁、鷹架卡片)
 │   ├── class_excel_generator.py          # 班級成績總表 Excel 生成引擎 (雙工作表：向度明細表 + 常模統計表)
 │   └── pdf_essay_extractor.py            # 手寫作文掃描 PDF/圖片批次頁面萃取預處理工具
 └── references/                           # 核心評分法規與批閱寶典庫
+    ├── eval_data_schema.md               # 全班批閱 JSON 資料交換標準規範與欄位別名映射字典
     ├── cap_essay_rubric.md               # 心測中心官方寫作測驗四大向度 0~6 級分標準規準手冊
     ├── teacher_grading_secrets.md        # 現場名師批閱心法：篇幅防守線、一例一段、首尾呼應、由物入理
     └── sample_prompts_and_upgrades.md    # 歷屆會考經典考題排他性審題拆解與段落升級示範
@@ -145,11 +147,14 @@ python scripts/rubric_plan_builder.py --topic "當我停下來" --stage "國中�
 # 2. 產出單生標準診斷單 (Word + PDF)
 python scripts/essay_report_builder.py --topic "當我停下來" --student "901班 05號 李同學" --score 4 --output "李同學作文診斷單.docx"
 
-# 3. 傳入 JSON 資料生成全班彙整手冊（含封面總覽表、每生強制獨立分頁、全班教學診斷專頁）與 Excel 成績總表
+# 3. 全班多子代理並行後【一鍵自動整併、排序、校準並產出三合一成果】（強烈推薦！）
+python scripts/batch_data_merge.py --inputs "eval_part*.json" --output-dir "[學生作文目錄]" --class-name "705班" --topic "記憶中的滋味"
+
+# 4. 手動傳入 JSON 資料生成全班彙整手冊與 Excel 成績總表
 python scripts/essay_report_builder.py --data-json "class_results.json" --output "全班寫作評閱手冊.docx"
 python scripts/class_excel_generator.py "class_results.json" "班級作文成績總表.xlsx"
 
-# 4. 處理學生手寫掃描檔 PDF (支援局部頁面轉正，如 --pages even 或 --pages 2,4)
+# 5. 處理學生手寫掃描檔 PDF (支援局部頁面轉正，如 --pages even 或 --pages 2,4)
 python scripts/pdf_essay_extractor.py "學生手寫稿卷.pdf" --output-dir "scanned_pages"
 ```
 
@@ -170,8 +175,8 @@ python scripts/pdf_essay_extractor.py "學生手寫稿卷.pdf" --output-dir "sca
 5. **手寫掃描檔批次自動連續管線**：
    - 支援整份多頁手寫 PDF 一鍵批改到底，自動統計全班成績矩陣。
 6. **Word 排版極致規範（每生強制換頁）**：
-7. **考場天頭錯別字精準座標訂正表**：
-   - 實體還原考場批改實務，以教學直覺型 4 欄表格（錯字詞語、卷面座標 `P1 第 X 行第 Y 格`、錯誤字修正、語境訂正與字義解析）精準呈現，輔導學生落實文字正確性。
+7. **錯別字段落出處與前後文句定位訂正表**：
+   - 徹底杜絕行列座標偏差，以教學直覺型 4 欄表格（錯字詞語、所在段落與原句脈絡 `第 X 段：「……」`、錯誤字修正、語境訂正與字義解析）精準定位，輔導學生在閱讀脈絡中深刻理解字義與用法。
 
 ---
 

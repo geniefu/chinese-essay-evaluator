@@ -137,7 +137,12 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
     p_header.paragraph_format.space_before = Pt(4)
     p_header.paragraph_format.space_after = Pt(3)
     p_header.paragraph_format.keep_with_next = True
-    r_hdr = p_header.add_run(f"🧑‍🎓 {student_info} 寫作測驗專業評閱診斷報告")
+    header_text = f"🧑‍🎓 {student_info} 寫作測驗專業評閱診斷報告"
+    paper_st = student_data.get('paper_seat_no', '')
+    st_no = student_data.get('seat_no', '')
+    if paper_st and st_no and str(paper_st).strip() != str(st_no).strip() and str(paper_st).strip() != str(st_no).lstrip('0'):
+        header_text += f" 【卷面座號誤填為 {paper_st} 號】"
+    r_hdr = p_header.add_run(header_text)
     set_font(r_hdr, name='微軟正黑體', size_pt=14, bold=True, color_rgb=(30, 58, 138))
 
     # 2. 基本資訊橫卡
@@ -440,8 +445,15 @@ def build_batch_class_report(batch_data, output_path, include_images=False, auto
     for r_i, s_info in enumerate(students):
         row = tbl_sum.add_row()
         bg = "DCFCE7" if s_info.get('score', 0) >= 6 else ("F8FAFC" if r_i % 2 == 1 else "FFFFFF")
+        
+        info_display = s_info.get('student_info', f"學生 {r_i+1}")
+        paper_st = s_info.get('paper_seat_no', '')
+        st_no = s_info.get('seat_no', '')
+        if paper_st and st_no and str(paper_st).strip() != str(st_no).strip() and str(paper_st).strip() != str(st_no).lstrip('0'):
+            info_display += f"\n(卷面誤填{paper_st}號)"
+            
         vals = [
-            s_info.get('student_info', f"學生 {r_i+1}"),
+            info_display,
             f"〈{s_info.get('topic', '未定題')}〉",
             f"{s_info.get('score', 4)} 級分",
             s_info.get('one_sentence_review', "論述尚稱通順。")

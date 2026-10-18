@@ -104,23 +104,40 @@ def build_class_excel_report(batch_data, output_path):
         is_even = (row_idx % 2 == 0)
         base_fill = fill_alt if is_even else fill_white
         
-        info_str = s.get('student_info', f"學生 {row_idx-3}")
-        seat_no = ""
-        name = info_str
-        parts = info_str.split()
-        if len(parts) >= 3:
-            seat_no = parts[1].replace('號', '')
-            name = parts[2]
-        elif len(parts) == 2:
-            seat_no = parts[0].replace('號', '')
-            name = parts[1]
+        # 智慧提取座號與姓名 (相容 seat_no, name, student_info 各種欄位形式)
+        seat_raw = s.get('seat_no', s.get('seat', s.get('seat_number', '')))
+        name_raw = s.get('name', s.get('student_name', ''))
+        seat_no = f"{int(seat_raw):02d}" if str(seat_raw).isdigit() else str(seat_raw).replace('號', '').strip()
+        name = str(name_raw).strip()
+        
+        if not name or not seat_no:
+            info_str = s.get('student_info', f"學生 {row_idx-3}")
+            parts = info_str.split()
+            if len(parts) >= 3:
+                if not seat_no: seat_no = parts[1].replace('號', '').zfill(2)
+                if not name: name = parts[2]
+            elif len(parts) == 2:
+                if not seat_no: seat_no = parts[0].replace('號', '').zfill(2)
+                if not name: name = parts[1]
+            elif not name:
+                name = info_str
+                
+        # 標註卷面座號筆誤（若有）
+        paper_seat_no = s.get('paper_seat_no', s.get('seat_no_on_paper', ''))
+        if paper_seat_no and str(paper_seat_no).strip() != seat_no and str(paper_seat_no).replace('號', '').strip() != seat_no.lstrip('0'):
+            name = f"{name} (卷面誤填{paper_seat_no}號)"
             
-        topic = f"〈{s.get('topic', '當我停下來')}〉"
-        is_absent = s.get('is_absent', False) or (s.get('score', 0) == 0 and '缺考' in s.get('page_status', ''))
-        score = s.get('score', 4)
+        topic = f"〈{s.get('topic', s.get('title', '未定題'))}〉"
+        is_absent = s.get('is_absent', False) or (s.get('score', 0) == 0 and '缺考' in str(s.get('page_status', '')))
+        
+        score_val = s.get('score', s.get('final_score', s.get('grade', 4)))
+        try:
+            score = int(score_val)
+        except:
+            score = 4
         score_display = "缺考" if is_absent else f"{score} 級分"
         
-        # 拆解四大向度
+        # 拆解四大向度 (相容 dimensions, score_matrix, subscores)
         dims = s.get('dimensions', [])
         dim_map = {}
         for d in dims:
@@ -129,29 +146,40 @@ def build_class_excel_report(batch_data, output_path):
             elif isinstance(d, dict):
                 dim_map[d.get('name', '')] = d.get('grade', f"{score} 級分")
                 
+        # 若未提供 dimensions，嘗試從 subscores 提取
+        if not dim_map and 'subscores' in s:
+            sub = s['subscores']
+            dim_map['立意取材'] = f"{sub.get('content', score)} 級分"
+            dim_map['結構組織'] = f"{sub.get('structure', score)} 級分"
+            dim_map['遣詞造句'] = f"{sub.get('language', score)} 級分"
+            dim_map['錯別字與標點'] = f"{sub.get('convention', score)} 級分"
+                
         d_liyi = dim_map.get('立意取材', f"{score} 級分" if not is_absent else "缺考")
         d_jiegou = dim_map.get('結構組織', f"{score} 級分" if not is_absent else "缺考")
         d_qianci = dim_map.get('遣詞造句', f"{score} 級分" if not is_absent else "缺考")
         d_cuozi = dim_map.get('錯別字與標點', f"{score} 級分" if not is_absent else "缺考")
         
-        page_status = s.get('page_status', '篇幅充裕')
+        page_status = s.get('page_status', s.get('length_status', s.get('length_check', '篇幅充裕')))
         
-        # 錯別字統計與摘要
-        ww_list = s.get('wrong_words', [])
+        # 錯別字統計與摘要 (相容 wrong_words, corrections)
+        ww_list = s.get('wrong_words', s.get('corrections', []))
         ww_count = len(ww_list)
         ww_summary_items = []
         for item in ww_list:
             if isinstance(item, dict):
-                w_orig = item.get('word', '')
-                w_corr = item.get('correction', '')
-                ww_summary_items.append(f"{w_orig}({w_corr})")
+                w_orig = item.get('word', item.get('wrong', ''))
+                w_corr = item.get('correction', item.get('correct', ''))
+                if w_orig and w_corr:
+                    ww_summary_items.append(f"{w_orig}➔{w_corr}")
+                elif w_orig:
+                    ww_summary_items.append(w_orig)
             elif isinstance(item, (list, tuple)) and len(item) >= 3:
-                ww_summary_items.append(f"{item[0]}({item[2]})")
+                ww_summary_items.append(f"{item[0]}➔{item[2]}")
             elif isinstance(item, str):
                 ww_summary_items.append(item)
         ww_summary = "、".join(ww_summary_items) if ww_summary_items else ("缺考無作答" if is_absent else "卷面嚴謹零錯字")
         
-        review = s.get('one_sentence_review', '')
+        review = s.get('one_sentence_review', s.get('teacher_summary', s.get('review', s.get('teacher_comment', ''))))
         
         score_highlight = None if is_absent else score
         row_vals = [
