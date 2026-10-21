@@ -118,7 +118,17 @@ def try_export_pdf(docx_path):
 def render_student_section(doc, student_data, is_batch=False, include_images=False):
     """渲染單一學生評閱章節"""
     topic = student_data.get('topic', "未定題")
-    student_info = student_data.get('student_info', "九年級 學生")
+    student_info = student_data.get('student_info', "")
+    if not student_info:
+        s_seat = str(student_data.get('seat_no', student_data.get('seat', ''))).zfill(2)
+        s_name = student_data.get('name', student_data.get('student_name', ''))
+        s_cls = student_data.get('class_name', '909班')
+        if s_seat and s_name:
+            student_info = f"{s_cls} {s_seat}號 {s_name}"
+        elif s_name:
+            student_info = f"{s_cls} {s_name}"
+        else:
+            student_info = f"{s_cls} {s_seat}號"
     score = student_data.get('score', 4)
     percent_score = student_data.get('percent_score', 80)
     level_tier = student_data.get('tier', "中卷穩健 (B++)")
@@ -131,6 +141,7 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
     upgrade_demo = student_data.get('upgrade_demo', {})
     scaffold = student_data.get('scaffold', None)
     model_essay = student_data.get('model_essay', None)
+    idioms = student_data.get('idioms', student_data.get('idiom_evaluations', []))
 
     # 1. 學生章節標題
     p_header = doc.add_paragraph()
@@ -294,11 +305,73 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
                 set_font(r, name='微軟正黑體', size_pt=8.5, bold=b_flag, color_rgb=color_c)
                 set_borders(c, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
     else:
-        add_p(doc, "太棒了！本次卷面書寫嚴謹，無明顯錯別字，請繼續保持高水準之文字正確性！", bold=True, color_rgb=(21, 128, 61))
+        if score == 0:
+            add_p(doc, "（全卷空白未作答，無文字可供評核錯別字）", color_rgb=(100, 116, 139))
+        else:
+            add_p(doc, "太棒了！本次卷面書寫嚴謹，無明顯錯別字，請繼續保持高水準之文字正確性！", bold=True, color_rgb=(21, 128, 61))
+
+    # 動態章節計數器
+    order_cn = ["壹", "貳", "參", "肆", "伍", "陸", "柒", "捌", "玖", "拾"]
+    sec_idx = 2  # 壹:四大向度, 貳:錯別字
+
+    # 5.5 成語運用與典故檢核表
+    sec_idx += 1
+    format_heading(doc, f"{order_cn[sec_idx-1]}、 成語運用與典故檢核表", 1)
+    if idioms:
+        tbl_id = doc.add_table(rows=1, cols=4)
+        tbl_id.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_id.autofit = False
+        id_w = [Inches(1.2), Inches(2.4), Inches(1.1), Inches(2.4)]
+        headers_id = ["成語詞語", "所在段落與原句脈絡", "引用評價", "語境診斷與運用解析"]
+        for i, h in enumerate(headers_id):
+            c = tbl_id.rows[0].cells[i]; c.text = h; c.width = id_w[i]
+            set_cell_shd(c, "1E3A8A"); set_cell_pad(c, top=45, bottom=45, left=35, right=35)
+            p = c.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            set_font(p.runs[0], name='微軟正黑體', size_pt=8.5, bold=True, color_rgb=(255, 255, 255))
+
+        for idx_i, item in enumerate(idioms):
+            row_id = tbl_id.add_row()
+            if isinstance(item, dict):
+                i_word = item.get('idiom', item.get('word', ''))
+                i_loc = item.get('location', item.get('context', f"第 {idx_i+1} 段"))
+                i_eval = item.get('status', item.get('evaluation', '引用得當'))
+                i_note = item.get('analysis', item.get('note', ''))
+            elif isinstance(item, (list, tuple)):
+                if len(item) >= 4:
+                    i_word, i_loc, i_eval, i_note = item[0], item[1], item[2], item[3]
+                elif len(item) == 3:
+                    i_word, i_loc, i_eval = item[0], item[1], item[2]
+                    i_note = ""
+                else:
+                    i_word = str(item[0]); i_loc = "-"; i_eval = "引用得當"; i_note = ""
+            else:
+                i_word = str(item); i_loc = "-"; i_eval = "引用得當"; i_note = ""
+
+            bg_row = "F8FAFC" if idx_i % 2 == 0 else "FFFFFF"
+            is_good = "得當" in str(i_eval) or "佳" in str(i_eval) or "精準" in str(i_eval)
+            eval_color = (21, 128, 61) if is_good else ((185, 28, 28) if "不當" in str(i_eval) or "誤" in str(i_eval) else (180, 83, 9))
+            col_vals = [
+                (i_word, True, (30, 58, 138), WD_ALIGN_PARAGRAPH.CENTER),
+                (i_loc, False, (51, 65, 85), WD_ALIGN_PARAGRAPH.LEFT),
+                (i_eval, True, eval_color, WD_ALIGN_PARAGRAPH.CENTER),
+                (i_note, False, (15, 23, 42), WD_ALIGN_PARAGRAPH.LEFT)
+            ]
+            for c_i, (val, b_flag, color_c, align_c) in enumerate(col_vals):
+                c = row_id.cells[c_i]; c.width = id_w[c_i]
+                set_cell_shd(c, bg_row); set_cell_pad(c, top=45, bottom=45, left=35, right=35)
+                p = c.paragraphs[0]; p.alignment = align_c
+                r = p.add_run(val)
+                set_font(r, name='微軟正黑體', size_pt=8.5, bold=b_flag, color_rgb=color_c)
+                set_borders(c, bottom={'val': 'single', 'sz': '4', 'color': 'CBD5E1'}, top={'val': 'single', 'sz': '4', 'color': 'CBD5E1'})
+    else:
+        if score == 0:
+            add_p(doc, "（全卷空白未作答，無成語引用紀錄）", color_rgb=(100, 116, 139))
+        else:
+            add_p(doc, "💡 本次寫作未引用成語，行文平實通暢。建議未來在文意轉折或哲思昇華處，可適度融入 1~2 個精鍊成語（如：浮光掠影、雪中送炭、豁然開朗），增強文字張力與遣詞密度。", bold=False, color_rgb=(71, 85, 105))
 
     # 6. 寫作進階鷹架 (若觸發)
     if scaffold:
-        format_heading(doc, "參、 寫作進階鷹架 (篇幅拓展與思想深化引導)", 1)
+        sec_idx += 1
+        format_heading(doc, f"{order_cn[sec_idx-1]}、 寫作進階鷹架 (篇幅拓展與思想深化引導)", 1)
         scaffold_text = (
             f"1. 【細節擴寫引導】：{scaffold.get('detail_guidance', '試著描述當時對方的具體微表情、環境光影與背景環境音。')}\n"
             f"2. 【五感描摹錦囊】：{scaffold.get('senses_guidance', '注入視覺顏色對比、聽覺節奏、觸覺溫度，避免抽象形容詞。')}\n"
@@ -307,8 +380,8 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
         add_callout(doc, scaffold_text, title="🏗️ 寫作進階鷹架卡片", border_color="D97706", bg_color="FEFCE8")
 
     # 7. 逐段眉批與脈絡診斷
-    sec_num_str = "肆" if scaffold else "參"
-    format_heading(doc, f"{sec_num_str}、 國文老師逐段批註與脈絡診斷", 1)
+    sec_idx += 1
+    format_heading(doc, f"{order_cn[sec_idx-1]}、 國文老師逐段批註與脈絡診斷", 1)
     default_secs = [
         ("第一段（起 / 開門破題）", "破題清楚，能點出核心主旨，但引導鋪陳稍急躁，建議加強生活情境之帶入感。"),
         ("第二段（承 / 第一事例展開）", "描寫具有生活細節，能具體呈現人事事物，唯在心理轉折處收尾較倉促。"),
@@ -320,8 +393,8 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
         add_p(doc, f"• 【{s_title}】：{s_comment}", space_after=2)
 
     # 8. 段落升級改寫示範
-    sec_num_str2 = "伍" if scaffold else "肆"
-    format_heading(doc, f"{sec_num_str2}、 突破瓶頸：段落升級改寫示範（衝刺 5~6 級分）", 1)
+    sec_idx += 1
+    format_heading(doc, f"{order_cn[sec_idx-1]}、 突破瓶頸：段落升級改寫示範（衝刺 5~6 級分）", 1)
     orig_p = upgrade_demo.get('orig', "當我停下來的時候，我發現世界其實很美麗。以前我每天都走得很匆忙，沒有好好看路上的風景。現在停下腳步，我感受到陽光很溫暖，微風吹過臉龐很舒服，我學會了不要給自己太大壓力。")
     up_p = upgrade_demo.get('upgrade', "猛然煞住趕赴補習班的腳步，氣喘吁吁地倚在紅磚巷口。褪去耳機裡的喧囂，一陣規律而清脆的鋼鐵敲擊聲悄然鑽入耳際。那是巷口修鞋的老伯，正赤著黝黑的臂膀，在微塵浮動的光暈裡專注穿引麻線。粗糙龜裂的手指一次次沉穩穿透厚硬的皮掌，不慌不忙。那一刻我驀地驚覺，自己日復一日在考卷與分數間的倉皇奔逐，究竟耗損了多少專注的魂魄？唯有停下盲奔，方能讀懂在時光沉澱下的真實生命。")
     tips = upgrade_demo.get('tips', "【改寫要訣點撥】：將原先『陽光溫暖、微風舒服』等抽象空泛心靈雞湯，轉化為具體客觀畫面（修鞋老伯、穿引麻線、光暈微塵），完成『客觀畫面特寫 ➔ 人物專注同理 ➔ 自我心靈省思』之三層昇華！")
@@ -348,8 +421,8 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
 
     # 9. 老師完整昇華示範範文 (可選，800~1200字)
     if model_essay:
-        sec_num_str3 = "陸" if scaffold else "伍"
-        format_heading(doc, f"{sec_num_str3}、 國文老師示範寫作 (完整版昇華範文)", 1)
+        sec_idx += 1
+        format_heading(doc, f"{order_cn[sec_idx-1]}、 國文老師示範寫作 (完整版昇華範文)", 1)
         tbl_m = doc.add_table(rows=1, cols=1)
         tbl_m.alignment = WD_TABLE_ALIGNMENT.CENTER; tbl_m.autofit = False
         c_m = tbl_m.cell(0, 0); c_m.width = Inches(7.1)
@@ -365,14 +438,8 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
     should_insert = include_images or student_data.get('include_images', False)
     essay_images = student_data.get('essay_images', []) if should_insert else []
     if essay_images:
-        # 計算項次序號
-        cnt_prior = 4
-        if scaffold: cnt_prior += 1
-        if True: cnt_prior += 1 # 逐段批註
-        if True: cnt_prior += 1 # 升級示範
-        if model_essay: cnt_prior += 1
-        order_cn = ["壹", "貳", "參", "肆", "伍", "陸", "柒", "捌", "玖", "拾"]
-        sec_num_img = order_cn[cnt_prior-1] if cnt_prior <= len(order_cn) else "附錄"
+        sec_idx += 1
+        sec_num_img = order_cn[sec_idx-1] if sec_idx <= len(order_cn) else "附錄"
         format_heading(doc, f"{sec_num_img}、 學生原卷作答影像存查", 1)
         for img_p in essay_images:
             if os.path.exists(img_p):
@@ -446,7 +513,15 @@ def build_batch_class_report(batch_data, output_path, include_images=False, auto
         row = tbl_sum.add_row()
         bg = "DCFCE7" if s_info.get('score', 0) >= 6 else ("F8FAFC" if r_i % 2 == 1 else "FFFFFF")
         
-        info_display = s_info.get('student_info', f"學生 {r_i+1}")
+        info_display = s_info.get('student_info', '')
+        if not info_display:
+            s_seat = str(s_info.get('seat_no', s_info.get('seat', r_i+1))).zfill(2)
+            s_name = s_info.get('name', s_info.get('student_name', ''))
+            s_cls = s_info.get('class_name', batch_data.get('class_name', '909班'))
+            if s_name:
+                info_display = f"{s_cls} {s_seat}號 {s_name}"
+            else:
+                info_display = f"{s_cls} {s_seat}號"
         paper_st = s_info.get('paper_seat_no', '')
         st_no = s_info.get('seat_no', '')
         if paper_st and st_no and str(paper_st).strip() != str(st_no).strip() and str(paper_st).strip() != str(st_no).lstrip('0'):
