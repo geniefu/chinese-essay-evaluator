@@ -130,11 +130,10 @@ def render_student_section(doc, student_data, is_batch=False, include_images=Fal
         else:
             student_info = f"{s_cls} {s_seat}號"
     score = student_data.get('score', 4)
-    percent_score = student_data.get('percent_score', 80)
-    level_tier = student_data.get('tier', "中卷穩健 (B++)")
+    level_tier = student_data.get('tier', f"{score} 級分")
     stage = student_data.get('stage', "國中九年級")
     one_sentence_review = student_data.get('one_sentence_review', "符合題意，但取材多停留在表面觀察，感悟流於口號化。")
-    page_status = student_data.get('page_status', "卷面行數約 85%（最高上限鎖定 4 級分）")
+    page_status = student_data.get('page_status', "篇幅充裕")
     dimensions = student_data.get('dimensions', [])
     wrong_words = student_data.get('wrong_words', [])
     section_comments = student_data.get('section_comments', [])
@@ -582,7 +581,7 @@ if __name__ == '__main__':
     parser.add_argument('--topic', default="當我停下來", help="寫作題目")
     parser.add_argument('--student', default="九年級 學生", help="學生座號姓名或年級")
     parser.add_argument('--score', type=int, default=4, help="評定級分 (0~6)")
-    parser.add_argument('--tier', default="中卷穩健 (B++)", help="等第類別")
+    parser.add_argument('--tier', default="4 級分", help="級分等級")
     parser.add_argument('--stage', default="國中九年級", help="學段年級（國小/國中）")
     parser.add_argument('--output', default="會考作文評閱診斷單.docx", help="輸出 Word 檔案路徑")
     parser.add_argument('--data-json', default=None, help="傳入單生或全班評審診斷之 JSON 檔案")
